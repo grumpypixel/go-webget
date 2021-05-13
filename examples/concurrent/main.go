@@ -5,6 +5,7 @@ import (
 	"path"
 	"runtime"
 	"sync"
+	"time"
 
 	"github.com/grumpypixel/go-webget"
 )
@@ -27,12 +28,13 @@ func main() {
 	targetFilename := "" // use original filename
 
 	waitGroup := sync.WaitGroup{}
-	waitGroup.Add(len(urls))
 	for i, url := range urls {
 		options := webget.Options{
 			ProgressHandler: MyProgress{index: i, waitGroup: &waitGroup},
+			Timeout:         time.Second * 60,
 			CreateTargetDir: true,
 		}
+		waitGroup.Add(1)
 		go webget.DownloadToFile(url, targetDir, targetFilename, &options)
 	}
 	waitGroup.Wait()
@@ -52,6 +54,6 @@ func (p MyProgress) Update(sourceURL string, percentage float64, bytesRead, cont
 }
 
 func (p MyProgress) Done(sourceURL string) {
-	fmt.Printf("\nFinished %s [#%d]\n", path.Base(sourceURL), p.index)
+	fmt.Printf("\nDone %s [#%d]\n", path.Base(sourceURL), p.index)
 	p.waitGroup.Done()
 }

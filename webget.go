@@ -2,18 +2,17 @@ package webget
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
 	"path"
+	"time"
 )
 
 func DownloadToFile(sourceURL, targetDir, targetFilename string, options *Options) error {
-	if options == nil {
-		options = &Options{}
-	}
-
+	options = validateOptions(options)
 	if options.CreateTargetDir {
 		if err := os.MkdirAll(targetDir, os.ModePerm); err != nil {
 			return err
@@ -32,13 +31,13 @@ func DownloadToFile(sourceURL, targetDir, targetFilename string, options *Option
 	}
 
 	targetFilePath := path.Join(targetDir, filename)
-	tempFilePath := targetFilePath + tempExtension
+	tempFilePath := targetFilePath + TempExtension
 
 	if options.ProgressHandler != nil {
 		options.ProgressHandler.Start(sourceURL)
 	}
 
-	if err := downloadFile(sourceURL, tempFilePath, filename, options.ProgressHandler); err != nil {
+	if err := downloadFile(sourceURL, tempFilePath, filename, options.Timeout, options.ProgressHandler); err != nil {
 		return err
 	}
 
@@ -53,16 +52,14 @@ func DownloadToFile(sourceURL, targetDir, targetFilename string, options *Option
 }
 
 func DownloadToBuffer(sourceURL string, options *Options) ([]byte, error) {
-	if options == nil {
-		options = &Options{}
-	}
+	options = validateOptions(options)
 
 	if options.ProgressHandler != nil {
 		options.ProgressHandler.Start(sourceURL)
 	}
 
 	filename := path.Base(sourceURL)
-	bytes, err := downloadToBuffer(sourceURL, filename, options.ProgressHandler)
+	bytes, err := downloadToBuffer(sourceURL, filename, options.Timeout, options.ProgressHandler)
 	if err != nil {
 		return nil, err
 	}
@@ -73,8 +70,8 @@ func DownloadToBuffer(sourceURL string, options *Options) ([]byte, error) {
 	return bytes, nil
 }
 
-func downloadFile(sourceURL, filepath, filename string, progressHandler ProgressHandler) error {
-	resp, err := httpGet(sourceURL)
+func downloadFile(sourceURL, filepath, filename string, timeout time.Duration, progressHandler ProgressHandler) error {
+	resp, _, err := httpGet(sourceURL, timeout)
 	if err != nil {
 		return err
 	}
@@ -98,8 +95,8 @@ func downloadFile(sourceURL, filepath, filename string, progressHandler Progress
 	return nil
 }
 
-func downloadToBuffer(sourceURL, filename string, progressHandler ProgressHandler) ([]byte, error) {
-	resp, err := httpGet(sourceURL)
+func downloadToBuffer(sourceURL, filename string, timeout time.Duration, progressHandler ProgressHandler) ([]byte, error) {
+	resp, _, err := httpGet(sourceURL, timeout)
 	if err != nil {
 		return nil, err
 	}
@@ -126,14 +123,36 @@ func downloadToBuffer(sourceURL, filename string, progressHandler ProgressHandle
 	return buf.Bytes(), err
 }
 
-func httpGet(sourceURL string) (*http.Response, error) {
-	resp, err := http.Get(sourceURL)
+func httpGet(sourceURL string, timeout time.Duration) (*http.Response, context.CancelFunc, error) {
+	request, err := http.NewRequest("GET", sourceURL, nil)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	if resp.StatusCode != 200 && resp.StatusCode != 206 {
-		return nil, fmt.Errorf(fmt.Sprintf("http error: status code %d", resp.StatusCode))
+	ctx, cancelFunc := context.WithTimeout(context.Background(), timeout)
+	request = request.WithContext(ctx)
+
+	resp, err := http.DefaultClient.Do(request)
+	if err != nil {
+		cancelFunc()
+		return nil, nil, err
 	}
-	return resp, nil
+
+	if resp.StatusCode != 200 {
+		cancelFunc()
+		defer resp.Body.Close()
+		return nil, nil, fmt.Errorf("invalid response; status code: %s", resp.Status)
+	}
+
+	return resp, cancelFunc, nil
+}
+
+func validateOptions(options *Options) *Options {
+	if options != nil {
+		if options.Timeout == 0 {
+			options.Timeout = DefaultTimeout
+		}
+		return options
+	}
+	return DefaultOptions()
 }

@@ -1,7 +1,10 @@
 package webget
 
+import "time"
+
 const (
-	tempExtension = ".godownload"
+	DefaultTimeout = time.Second * 60
+	TempExtension  = ".godownload"
 )
 
 type ProgressHandler interface {
@@ -12,5 +15,14 @@ type ProgressHandler interface {
 
 type Options struct {
 	ProgressHandler ProgressHandler
+	Timeout         time.Duration
 	CreateTargetDir bool
+}
+
+func DefaultOptions() *Options {
+	return &Options{
+		ProgressHandler: nil,
+		Timeout:         DefaultTimeout,
+		CreateTargetDir: false,
+	}
 }

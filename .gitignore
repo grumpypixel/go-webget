@@ -5,6 +5,7 @@
 *.so
 *.dylib
 *.jpg
+*.godownload
 
 # Test binary, built with `go test -c`
 *.test

@@ -5,41 +5,48 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"time"
 
 	"github.com/grumpypixel/go-webget"
 )
 
 func main() {
-	downloadToFile()
-	downloadToBuffer()
+	if err := downloadToFile(); err != nil {
+		fmt.Println(err)
+	}
+	if err := downloadToBuffer(); err != nil {
+		fmt.Println(err)
+	}
 }
 
-func downloadToFile() {
+func downloadToFile() error {
 	fmt.Println("Downloading to file...")
 	url := "https://upload.wikimedia.org/wikipedia/commons/d/d6/Wp-w4-big.jpg"
-	targetDir := "."
+	targetDir := "./"
 	targetFilename := "" // use original filename
 	options := webget.Options{
 		ProgressHandler: MyProgress{},
+		Timeout:         time.Second * 60,
 	}
-	webget.DownloadToFile(url, targetDir, targetFilename, &options)
+	return webget.DownloadToFile(url, targetDir, targetFilename, &options)
 }
 
-func downloadToBuffer() {
+func downloadToBuffer() error {
 	fmt.Println("\nDownloading to buffer and save to file...")
 	url := "https://golang.org/doc/gopher/appenginegophercolor.jpg"
 	options := webget.Options{
 		ProgressHandler: MyProgress{},
+		Timeout:         time.Second * 60,
 	}
 	bytes, err := webget.DownloadToBuffer(url, &options)
 	if err != nil {
-		fmt.Println(err)
-		return
+		return err
 	}
 	filename := path.Base(url)
 	if _, err := writeBufferToFile(filename, bytes); err != nil {
-		fmt.Println(err)
+		return err
 	}
+	return nil
 }
 
 func writeBufferToFile(filepath string, bytes []byte) (int, error) {
@@ -67,5 +74,5 @@ func (p MyProgress) Update(sourceURL string, percentage float64, bytesRead, cont
 }
 
 func (p MyProgress) Done(sourceURL string) {
-	fmt.Printf("\nFinished %s\n", path.Base(sourceURL))
+	fmt.Printf("\nDone %s\n", path.Base(sourceURL))
 }
