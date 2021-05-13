@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"path"
 	"runtime"
 	"sync"
 
@@ -32,7 +33,7 @@ func main() {
 			ProgressHandler: MyProgress{index: i, waitGroup: &waitGroup},
 			CreateTargetDir: true,
 		}
-		go webget.Download(url, targetDir, targetFilename, &options)
+		go webget.DownloadToFile(url, targetDir, targetFilename, &options)
 	}
 	waitGroup.Wait()
 }
@@ -42,15 +43,15 @@ type MyProgress struct {
 	waitGroup *sync.WaitGroup
 }
 
-func (p MyProgress) Start(sourceURL, filename string) {
-	fmt.Printf("Starting download %s (#%d)\n", filename, p.index)
+func (p MyProgress) Start(sourceURL string) {
+	fmt.Printf("Starting %s [#%d]\n", path.Base(sourceURL), p.index)
 }
 
-func (p MyProgress) Update(sourceURL, filename string, percentage float64, bytes, size uint64) {
+func (p MyProgress) Update(sourceURL string, percentage float64, bytesRead, contentLength int64) {
 	fmt.Printf(".")
 }
 
-func (p MyProgress) Done(sourceURL, filename, targetFilePath string) {
-	fmt.Printf("\nFinished download %s (#%d)\n", filename, p.index)
+func (p MyProgress) Done(sourceURL string) {
+	fmt.Printf("\nFinished %s [#%d]\n", path.Base(sourceURL), p.index)
 	p.waitGroup.Done()
 }

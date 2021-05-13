@@ -5,9 +5,9 @@ const (
 )
 
 type ProgressHandler interface {
-	Start(soureURL, filename string)
-	Update(soureURL, filename string, percentage float64, bytes, size uint64)
-	Done(soureURL, filename, targetFilePath string)
+	Start(soureURL string)
+	Update(soureURL string, percentage float64, bytes, contentLength int64)
+	Done(soureURL string)
 }
 
 type Options struct {
